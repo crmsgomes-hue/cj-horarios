@@ -138,6 +138,45 @@
   }
   .legal-note.err{background:#3a1a17;color:var(--danger);}
 
+  /* VIEW SWITCH */
+  .view-switch{display:flex;gap:8px;padding:0 20px 12px;}
+  .view-switch button{flex:1;background:var(--card);border:1px solid var(--border);color:var(--text-dim);border-radius:10px;padding:9px;font-size:12px;font-weight:600;}
+  .view-switch button.active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent);}
+
+  /* VISTA MENSAL */
+  .mensal-wrap{overflow-x:auto;padding:0 0 90px;-webkit-overflow-scrolling:touch;}
+  table.mensal-grid{border-collapse:collapse;font-size:11px;white-space:nowrap;}
+  table.mensal-grid th, table.mensal-grid td{border:1px solid var(--border);padding:6px 5px;text-align:center;}
+  table.mensal-grid th.func-col, table.mensal-grid td.func-col{
+    position:sticky;left:0;background:var(--bg);text-align:left;padding:8px 10px;z-index:2;font-weight:600;min-width:110px;
+  }
+  table.mensal-grid th{background:var(--bg-elev);color:var(--text-dim);font-weight:600;min-width:34px;}
+  table.mensal-grid th.weekend{color:var(--accent);}
+  table.mensal-grid td{min-width:34px;color:var(--text-dim);}
+  table.mensal-grid td.turno{background:var(--card);color:var(--text);font-weight:600;}
+  table.mensal-grid td.folga{background:none;color:var(--text-dim);font-style:italic;}
+  table.mensal-grid td.noturno{color:var(--accent);}
+
+  /* VISTA DIÁRIA */
+  .diario-daypicker{display:flex;align-items:center;justify-content:space-between;padding:0 20px 14px;}
+  .diario-daypicker input{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 12px;font-size:14px;}
+  .diario-wrap{overflow-x:auto;padding:0 20px 90px;-webkit-overflow-scrolling:touch;}
+  .diario-timeline{position:relative;min-width:1000px;}
+  .diario-hours{display:flex;border-bottom:1px solid var(--border);margin-left:110px;}
+  .diario-hours .h{flex-shrink:0;width:40px;font-size:10px;color:var(--text-dim);text-align:left;padding:4px 0;border-left:1px solid var(--border);}
+  .diario-row{display:flex;align-items:center;border-bottom:1px solid var(--border);min-height:44px;position:relative;}
+  .diario-row .name{width:110px;flex-shrink:0;font-size:12px;font-weight:600;padding-right:8px;}
+  .diario-row .track{position:relative;flex:1;height:32px;background:repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 40px);}
+  .diario-bar{position:absolute;top:2px;height:28px;background:var(--accent);border-radius:6px;font-size:10px;color:#1a1200;font-weight:700;display:flex;align-items:center;padding:0 6px;overflow:hidden;white-space:nowrap;}
+  .diario-bar.noturno{background:#8a6fd6;color:#fff;}
+  .diario-bar.folga{background:var(--border);color:var(--text-dim);}
+
+  /* EQUIPA */
+  #equipa-list{padding:16px 20px 90px;}
+  .colab-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+  .colab-card .info .nome{font-size:14px;font-weight:600;}
+  .colab-card .info .user{font-size:12px;color:var(--text-dim);margin-top:2px;}
+
   #ferias-list{padding:16px 20px;}
   .fer-card{
     background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;
@@ -194,22 +233,74 @@
     <button class="btn-icon" onclick="showScreen('hub')">✕</button>
   </header>
 
-  <div class="week-nav">
-    <button onclick="changeWeek(-1)">‹ Anterior</button>
-    <div class="label" id="weekLabel"></div>
-    <button onclick="changeWeek(1)">Seguinte ›</button>
+  <div class="view-switch">
+    <button id="vs-semana" class="active" onclick="mudarVistaCalendario('semana')">Semana</button>
+    <button id="vs-mensal" onclick="mudarVistaCalendario('mensal')">Mensal</button>
+    <button id="vs-diario" onclick="mudarVistaCalendario('diario')">Diária</button>
   </div>
 
-  <div id="weekList"></div>
+  <!-- VISTA SEMANA -->
+  <div id="calSemana">
+    <div class="week-nav">
+      <button onclick="changeWeek(-1)">‹ Anterior</button>
+      <div class="label" id="weekLabel"></div>
+      <button onclick="changeWeek(1)">Seguinte ›</button>
+    </div>
+    <div id="weekList"></div>
+  </div>
+
+  <!-- VISTA MENSAL -->
+  <div id="calMensal" style="display:none">
+    <div class="week-nav">
+      <button onclick="changeMonth(-1)">‹ Anterior</button>
+      <div class="label" id="monthLabel"></div>
+      <button onclick="changeMonth(1)">Seguinte ›</button>
+    </div>
+    <div class="mensal-wrap"><table class="mensal-grid" id="mensalGrid"></table></div>
+  </div>
+
+  <!-- VISTA DIÁRIA -->
+  <div id="calDiario" style="display:none">
+    <div class="diario-daypicker">
+      <button onclick="changeDay(-1)">‹</button>
+      <input type="date" id="diarioDate" onchange="carregarDiario()">
+      <button onclick="changeDay(1)">›</button>
+    </div>
+    <div class="diario-wrap"><div class="diario-timeline" id="diarioTimeline"></div></div>
+  </div>
 
   <button class="fab" id="fabAdd" onclick="openTurnoModal()">+</button>
 
   <div class="tabbar">
     <button class="tab-btn active" data-tab="semana" onclick="switchTab('semana')">
-      <span class="ic">📅</span>Semana
+      <span class="ic">📅</span>Horário
     </button>
     <button class="tab-btn" data-tab="ferias" onclick="switchTab('ferias')">
       <span class="ic">🌴</span>Férias
+    </button>
+    <button class="tab-btn" data-tab="equipa" onclick="switchTab('equipa')">
+      <span class="ic">👥</span>Equipa
+    </button>
+  </div>
+</div>
+
+<!-- EQUIPA -->
+<div id="equipa-tab" class="screen">
+  <header class="top">
+    <div><h1>Equipa</h1><div class="sub" id="equipa-loja"></div></div>
+    <button class="btn-icon" onclick="showScreen('hub')">✕</button>
+  </header>
+  <div id="equipa-list"></div>
+  <button class="fab" onclick="openColabModal()">+</button>
+  <div class="tabbar">
+    <button class="tab-btn" data-tab="semana" onclick="goHorariosTab('semana')">
+      <span class="ic">📅</span>Horário
+    </button>
+    <button class="tab-btn" data-tab="ferias" onclick="goHorariosTab('ferias')">
+      <span class="ic">🌴</span>Férias
+    </button>
+    <button class="tab-btn active" data-tab="equipa" onclick="goHorariosTab('equipa')">
+      <span class="ic">👥</span>Equipa
     </button>
   </div>
 </div>
@@ -264,6 +355,30 @@
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal('modalTurno')">Cancelar</button>
       <button class="btn primary" onclick="guardarTurno()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COLABORADOR -->
+<div class="modal-bg" id="modalColab">
+  <div class="modal">
+    <h3>Novo colaborador</h3>
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" id="cNome" placeholder="Nome completo">
+    </div>
+    <div class="field">
+      <label>Utilizador (login na app do funcionário)</label>
+      <input type="text" id="cUsername" placeholder="ex: joana.silva" autocapitalize="none">
+    </div>
+    <div class="field">
+      <label>Password inicial</label>
+      <input type="text" id="cPassword" placeholder="Define uma password">
+    </div>
+    <div id="colabError" style="color:var(--danger);font-size:12px;margin-bottom:8px;"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal('modalColab')">Cancelar</button>
+      <button class="btn primary" onclick="guardarColab()">Criar acesso</button>
     </div>
   </div>
 </div>
@@ -371,9 +486,23 @@ function showScreen(id) {
 }
 function switchTab(tab) {
   if (tab === "ferias") { showScreen("ferias-tab"); carregarFerias(); }
+  else if (tab === "equipa") { showScreen("equipa-tab"); carregarEquipa(); }
   else { showScreen("horarios"); }
 }
 function goHorariosTab(tab) { switchTab(tab); }
+
+/* ---------- TROCA DE VISTA DO CALENDÁRIO ---------- */
+function mudarVistaCalendario(v) {
+  ["semana","mensal","diario"].forEach(x => {
+    document.getElementById(`vs-${x}`).classList.toggle("active", x === v);
+    document.getElementById(`cal${x[0].toUpperCase()}${x.slice(1)}`).style.display = x === v ? "block" : "none";
+  });
+  if (v === "mensal") { if (!state.monthDate) state.monthDate = new Date(); carregarMensal(); }
+  if (v === "diario") {
+    if (!document.getElementById("diarioDate").value) document.getElementById("diarioDate").value = fmtDate(new Date());
+    carregarDiario();
+  }
+}
 
 /* ---------- HUB: apps vivas/mortas ---------- */
 async function carregarHub() {
@@ -413,9 +542,7 @@ async function abrirHorarios() {
   state.weekStart = startOfWeek(new Date());
   document.getElementById("hor-loja").textContent = `${state.loja?.nome || ""} · ${state.user.nome}`;
   document.getElementById("fabAdd").style.display = state.user.papel === "gerente" ? "flex" : "none";
-  if (state.user.papel === "gerente") {
-    state.utilizadoresLoja = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&ativo=eq.true&select=*&order=nome`);
-  }
+  state.utilizadoresLoja = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&ativo=eq.true&select=*&order=nome`);
   showScreen("horarios");
   await carregarSemana();
 }
@@ -464,6 +591,152 @@ async function carregarSemana() {
       row.innerHTML = dowHtml + shiftsHtml;
     }
     list.appendChild(row);
+  }
+}
+
+/* ---------- VISTA MENSAL: funcionários em linha, dias em coluna ---------- */
+function changeMonth(delta) {
+  state.monthDate.setMonth(state.monthDate.getMonth() + delta);
+  carregarMensal();
+}
+async function carregarMensal() {
+  const y = state.monthDate.getFullYear(), m = state.monthDate.getMonth();
+  const start = new Date(y, m, 1);
+  const end = new Date(y, m + 1, 0);
+  const numDias = end.getDate();
+  document.getElementById("monthLabel").textContent = start.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
+
+  const turnos = await sb(`cj_horarios_turnos?loja_id=eq.${state.loja.id}&data=gte.${fmtDate(start)}&data=lte.${fmtDate(end)}&select=*`);
+
+  const diasSemana = ["D","S","T","Q","Q","S","S"];
+  let thead = `<tr><th class="func-col">Colaborador</th>`;
+  for (let d = 1; d <= numDias; d++) {
+    const date = new Date(y, m, d);
+    const weekend = date.getDay() === 0 || date.getDay() === 6;
+    thead += `<th class="${weekend ? 'weekend' : ''}">${diasSemana[date.getDay()]}<br>${d}</th>`;
+  }
+  thead += `</tr>`;
+
+  let rows = "";
+  state.utilizadoresLoja.forEach(u => {
+    rows += `<tr><td class="func-col">${u.nome}</td>`;
+    for (let d = 1; d <= numDias; d++) {
+      const iso = fmtDate(new Date(y, m, d));
+      const t = turnos.find(x => x.utilizador_id === u.id && x.data === iso);
+      if (!t) rows += `<td></td>`;
+      else if (t.tipo === "folga") rows += `<td class="folga">F</td>`;
+      else rows += `<td class="turno ${t.noturno ? 'noturno' : ''}">${t.hora_inicio?.slice(0,5)}-${t.hora_fim?.slice(0,5)}</td>`;
+    }
+    rows += `</tr>`;
+  });
+
+  document.getElementById("mensalGrid").innerHTML = thead + rows;
+}
+
+/* ---------- VISTA DIÁRIA: horas em coluna (30 min), colaboradores em linha ---------- */
+const DIARIO_INICIO_H = 6;   // 06:00
+const DIARIO_FIM_H = 26;     // até às 02:00 do dia seguinte, para cobrir noturnos
+function changeDay(delta) {
+  const input = document.getElementById("diarioDate");
+  const d = new Date(input.value || fmtDate(new Date()));
+  d.setDate(d.getDate() + delta);
+  input.value = fmtDate(d);
+  carregarDiario();
+}
+function horaParaMinutos(hhmm, cruzaMeiaNoite) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  let total = h * 60 + m;
+  if (cruzaMeiaNoite && h < DIARIO_INICIO_H) total += 24 * 60;
+  return total;
+}
+async function carregarDiario() {
+  const iso = document.getElementById("diarioDate").value;
+  if (!iso) return;
+
+  const turnos = await sb(`cj_horarios_turnos?loja_id=eq.${state.loja.id}&data=eq.${iso}&select=*`);
+
+  const totalMin = (DIARIO_FIM_H - DIARIO_INICIO_H) * 60;
+  let hoursHtml = "";
+  for (let h = DIARIO_INICIO_H; h <= DIARIO_FIM_H; h++) {
+    hoursHtml += `<div class="h" style="width:40px">${String(h % 24).padStart(2,"0")}:00</div>`;
+  }
+
+  let rowsHtml = "";
+  state.utilizadoresLoja.forEach(u => {
+    const turnosUser = turnos.filter(t => t.utilizador_id === u.id && t.tipo !== "folga" && t.hora_inicio && t.hora_fim);
+    let barsHtml = "";
+    turnosUser.forEach(t => {
+      let ini = horaParaMinutos(t.hora_inicio, false);
+      let fim = horaParaMinutos(t.hora_fim, false);
+      if (fim <= ini) fim += 24 * 60; // cruza meia-noite
+      const iniRel = Math.max(0, ini - DIARIO_INICIO_H * 60);
+      const fimRel = Math.min(totalMin, fim - DIARIO_INICIO_H * 60);
+      if (fimRel <= 0 || iniRel >= totalMin) return;
+      const leftPx = (iniRel / 30) * 20;   // 20px por cada 30min (40px por hora)
+      const widthPx = ((fimRel - iniRel) / 30) * 20;
+      barsHtml += `<div class="diario-bar ${t.noturno ? 'noturno' : ''}" style="left:${leftPx}px;width:${widthPx}px">${t.hora_inicio.slice(0,5)}-${t.hora_fim.slice(0,5)}</div>`;
+    });
+    rowsHtml += `<div class="diario-row"><div class="name">${u.nome}</div><div class="track" style="width:${(totalMin/30)*20}px">${barsHtml}</div></div>`;
+  });
+
+  document.getElementById("diarioTimeline").innerHTML = `
+    <div class="diario-hours">${hoursHtml}</div>
+    ${rowsHtml}
+  `;
+}
+
+/* ---------- GESTÃO DE EQUIPA ---------- */
+async function carregarEquipa() {
+  document.getElementById("equipa-loja").textContent = state.loja?.nome || "";
+  const lista = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&papel=eq.funcionario&ativo=eq.true&select=*&order=nome`);
+  const list = document.getElementById("equipa-list");
+  if (!lista.length) {
+    list.innerHTML = `<div class="empty-state"><div class="ic">👥</div>Ainda não há colaboradores registados</div>`;
+    return;
+  }
+  list.innerHTML = lista.map(u => `
+    <div class="colab-card">
+      <div class="info">
+        <div class="nome">${u.nome}</div>
+        <div class="user">Login: ${u.username || "—"}</div>
+      </div>
+    </div>
+  `).join("");
+}
+function openColabModal() {
+  document.getElementById("cNome").value = "";
+  document.getElementById("cUsername").value = "";
+  document.getElementById("cPassword").value = "";
+  document.getElementById("colabError").textContent = "";
+  document.getElementById("modalColab").classList.add("active");
+}
+async function sha256Hex(texto) {
+  const enc = new TextEncoder().encode(texto);
+  const buf = await crypto.subtle.digest("SHA-256", enc);
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function guardarColab() {
+  const nome = document.getElementById("cNome").value.trim();
+  const username = document.getElementById("cUsername").value.trim().toLowerCase();
+  const password = document.getElementById("cPassword").value;
+  const errEl = document.getElementById("colabError");
+  if (!nome || !username || !password) { errEl.textContent = "Preenche todos os campos."; return; }
+
+  try {
+    const password_hash = await sha256Hex(password);
+    await sb("cj_utilizadores", {
+      method: "POST",
+      body: JSON.stringify([{
+        empresa_id: state.empresa.id, loja_id: state.loja.id, nome, username, password_hash, papel: "funcionario"
+      }])
+    });
+    closeModal("modalColab");
+    carregarEquipa();
+    // atualiza a lista usada nas vistas mensal/diária/turno
+    state.utilizadoresLoja = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&ativo=eq.true&select=*&order=nome`);
+  } catch (e) {
+    errEl.textContent = "Esse utilizador já existe — escolhe outro nome de login.";
   }
 }
 
