@@ -352,8 +352,7 @@ async function tentarLogin() {
     }
     const lojaRows = await sb(`cj_lojas?id=eq.${lojaId}&select=*`);
     state.loja = lojaRows[0];
-    await carregarHub();
-    showScreen("hub");
+    await abrirHorarios();
   } catch (e) {
     document.getElementById("login-error").textContent = "PIN não reconhecido";
     state.pin = ""; renderPin();
