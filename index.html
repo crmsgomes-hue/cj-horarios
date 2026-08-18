@@ -577,6 +577,43 @@ if ("serviceWorker" in navigator) {
       .catch(err => console.warn("SW falhou:", err));
   });
 }
+
+/* ---------- NOTIFICAÇÕES PUSH (preparado, ainda inativo) ----------
+   Quando gerarmos as chaves VAPID e tivermos um endpoint no servidor a
+   enviar pushes (ex: edge function no Supabase), basta:
+   1. Substituir VAPID_PUBLIC_KEY abaixo pela chave pública real
+   2. Chamar pedirPermissaoNotificacoes() depois do login
+   A tabela cj_push_subscriptions já existe e guarda a subscrição. */
+const VAPID_PUBLIC_KEY = ""; // preencher quando gerarmos as chaves
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function pedirPermissaoNotificacoes() {
+  if (!VAPID_PUBLIC_KEY || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") return;
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+  });
+  const json = sub.toJSON();
+  await sb("cj_push_subscriptions", {
+    method: "POST",
+    body: JSON.stringify([{
+      utilizador_id: state.user.id,
+      endpoint: json.endpoint,
+      p256dh: json.keys.p256dh,
+      auth: json.keys.auth
+    }]),
+    prefer: "resolution=merge-duplicates"
+  });
+}
 </script>
 </body>
 </html>
