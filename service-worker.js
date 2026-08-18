@@ -43,3 +43,24 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
+// ---- Notificações push (preparado, ainda não ativo) ----
+// Só começa a disparar quando tivermos chaves VAPID e um endpoint no
+// servidor a enviar pushes. Por agora fica pronto para esse dia.
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'CJ Horários', {
+      body: data.body || '',
+      icon: SCOPE + 'icon-192.png',
+      badge: SCOPE + 'icon-192.png',
+      data: data.url || SCOPE
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(event.notification.data || SCOPE));
+});
