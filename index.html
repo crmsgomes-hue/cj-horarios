@@ -100,15 +100,14 @@
   }
 
   .tabbar{
-    display:flex;border-top:1px solid var(--border);background:var(--bg-elev);
-    padding:8px 0 calc(8px + env(safe-area-inset-bottom));
+    display:flex;gap:8px;padding:0 20px 14px;border-bottom:1px solid var(--border);margin-bottom:2px;
   }
   .tabbar button{
-    flex:1;background:none;border:none;color:var(--text-dim);font-size:11px;display:flex;
-    flex-direction:column;align-items:center;gap:4px;
+    flex:1;background:none;border:none;color:var(--text-dim);font-size:13px;font-weight:600;display:flex;
+    flex-direction:row;align-items:center;justify-content:center;gap:6px;padding:10px 0;border-bottom:2px solid transparent;
   }
-  .tabbar button .ic{font-size:19px;}
-  .tabbar button.active{color:var(--accent);}
+  .tabbar button .ic{font-size:16px;}
+  .tabbar button.active{color:var(--accent);border-bottom-color:var(--accent);}
 
   /* MODAL */
   .modal-bg{
@@ -236,6 +235,15 @@
     <button class="btn-icon" onclick="showScreen('hub')">✕</button>
   </header>
 
+  <div class="tabbar">
+    <button class="tab-btn active" data-tab="semana" onclick="switchTab('semana')">
+      <span class="ic">📅</span>Horário
+    </button>
+    <button class="tab-btn" data-tab="equipa" onclick="switchTab('equipa')">
+      <span class="ic">👥</span>Equipa
+    </button>
+  </div>
+
   <div class="view-switch">
     <button id="vs-mensal" class="active" onclick="mudarVistaCalendario('mensal')">Mensal</button>
     <button id="vs-diario" onclick="mudarVistaCalendario('diario')">Diária</button>
@@ -272,15 +280,6 @@
   </div>
 
   <button class="fab" id="fabAdd" onclick="openTurnoModal()">+</button>
-
-  <div class="tabbar">
-    <button class="tab-btn active" data-tab="semana" onclick="switchTab('semana')">
-      <span class="ic">📅</span>Horário
-    </button>
-    <button class="tab-btn" data-tab="equipa" onclick="switchTab('equipa')">
-      <span class="ic">👥</span>Equipa
-    </button>
-  </div>
 </div>
 
 <!-- EQUIPA (colaboradores + pedidos de férias) -->
@@ -289,11 +288,6 @@
     <div><h1>Equipa</h1><div class="sub" id="equipa-loja"></div></div>
     <button class="btn-icon" onclick="showScreen('hub')">✕</button>
   </header>
-  <div style="padding:16px 20px 0;font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">Colaboradores</div>
-  <div id="equipa-list"></div>
-  <div style="padding:8px 20px 0;font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">Pedidos de férias</div>
-  <div id="equipa-ferias-list"></div>
-  <button class="fab" onclick="openColabModal()">+</button>
   <div class="tabbar">
     <button class="tab-btn" data-tab="semana" onclick="goHorariosTab('semana')">
       <span class="ic">📅</span>Horário
@@ -302,6 +296,11 @@
       <span class="ic">👥</span>Equipa
     </button>
   </div>
+  <div style="padding:16px 20px 0;font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">Colaboradores</div>
+  <div id="equipa-list"></div>
+  <div style="padding:8px 20px 0;font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">Pedidos de férias</div>
+  <div id="equipa-ferias-list"></div>
+  <button class="fab" onclick="openColabModal()">+</button>
 </div>
 
 <!-- MODAL TURNO -->
