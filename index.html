@@ -170,6 +170,8 @@
   .diario-bar{position:absolute;top:2px;height:28px;background:var(--accent);border-radius:6px;font-size:10px;color:#1a1200;font-weight:700;display:flex;align-items:center;padding:0 6px;overflow:hidden;white-space:nowrap;}
   .diario-bar.noturno{background:#8a6fd6;color:#fff;}
   .diario-bar.folga{background:var(--border);color:var(--text-dim);}
+  .diario-bar.editable{cursor:grab;touch-action:none;}
+  .diario-bar.dragging{opacity:.75;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,.4);}
   .diario-bar.almoco{background:#3a4a63;color:var(--text-dim);border:1px dashed var(--text-dim);z-index:2;}
 
   /* EQUIPA */
@@ -366,6 +368,7 @@
       <button class="btn ghost" onclick="closeModal('modalTurno')">Cancelar</button>
       <button class="btn primary" onclick="guardarTurno()">Guardar</button>
     </div>
+    <button class="btn" id="btnEliminarTurno" style="display:none;width:100%;margin-top:10px;background:#3a1a17;color:var(--danger);" onclick="eliminarTurno()">Eliminar turno</button>
   </div>
 </div>
 
@@ -666,6 +669,7 @@ async function carregarDiario() {
   if (!iso) return;
 
   const turnos = await sb(`cj_horarios_turnos?loja_id=eq.${state.loja.id}&data=eq.${iso}&select=*`);
+  state.turnosDiario = turnos;
 
   const totalMin = (DIARIO_FIM_H - DIARIO_INICIO_H) * 60;
   let hoursHtml = "";
@@ -686,7 +690,7 @@ async function carregarDiario() {
       if (fimRel <= 0 || iniRel >= totalMin) return;
       const leftPx = (iniRel / 30) * 20;   // 20px por cada 30min (40px por hora)
       const widthPx = ((fimRel - iniRel) / 30) * 20;
-      barsHtml += `<div class="diario-bar ${t.noturno ? 'noturno' : ''}" style="left:${leftPx}px;width:${widthPx}px">${t.hora_inicio.slice(0,5)}-${t.hora_fim.slice(0,5)}</div>`;
+      barsHtml += `<div class="diario-bar editable ${t.noturno ? 'noturno' : ''}" data-turno-id="${t.id}" style="left:${leftPx}px;width:${widthPx}px">${t.hora_inicio.slice(0,5)}-${t.hora_fim.slice(0,5)}</div>`;
 
       // bloco de almoço, colocado automaticamente a meio do turno
       const almocoMin = (t.almoco_horas || 0) * 60;
@@ -711,6 +715,75 @@ async function carregarDiario() {
     <div class="diario-hours">${hoursHtml}</div>
     ${rowsHtml}
   `;
+}
+
+/* ---------- EDITAR TURNO NA VISTA DIÁRIA: arrastar ou duplo-toque ---------- */
+let dragInfo = null;
+let lastTapId = null, lastTapTime = 0;
+const PX_POR_30MIN = 20;
+
+document.getElementById("diarioTimeline").addEventListener("pointerdown", (e) => {
+  const bar = e.target.closest(".diario-bar.editable");
+  if (!bar) return;
+  bar.setPointerCapture(e.pointerId);
+  dragInfo = {
+    turnoId: bar.dataset.turnoId,
+    bar,
+    startX: e.clientX,
+    startLeft: parseFloat(bar.style.left),
+    moved: false
+  };
+});
+
+document.getElementById("diarioTimeline").addEventListener("pointermove", (e) => {
+  if (!dragInfo) return;
+  const deltaX = e.clientX - dragInfo.startX;
+  if (Math.abs(deltaX) > 4) dragInfo.moved = true;
+  if (dragInfo.moved) {
+    dragInfo.bar.classList.add("dragging");
+    dragInfo.bar.style.left = (dragInfo.startLeft + deltaX) + "px";
+  }
+});
+
+document.getElementById("diarioTimeline").addEventListener("pointerup", async (e) => {
+  if (!dragInfo) return;
+  const { turnoId, bar, startX, moved } = dragInfo;
+  const turno = (state.turnosDiario || []).find(t => String(t.id) === String(turnoId));
+  dragInfo = null;
+  bar.classList.remove("dragging");
+
+  if (moved && turno) {
+    const deltaX = e.clientX - startX;
+    const deltaMin = Math.round(deltaX / PX_POR_30MIN) * 30;
+    if (deltaMin !== 0) {
+      const novosHorarios = deslocarHorario(turno.hora_inicio, turno.hora_fim, deltaMin);
+      await sb(`cj_horarios_turnos?id=eq.${turno.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ hora_inicio: novosHorarios.inicio, hora_fim: novosHorarios.fim })
+      });
+    }
+    carregarDiario();
+    carregarMensal();
+  } else if (turno) {
+    // não se moveu: conta como toque — verifica duplo-toque
+    const agora = Date.now();
+    if (lastTapId === turnoId && (agora - lastTapTime) < 400) {
+      openTurnoModal(turno);
+      lastTapId = null;
+    } else {
+      lastTapId = turnoId;
+      lastTapTime = agora;
+    }
+  }
+});
+
+function deslocarHorario(hora_inicio, hora_fim, deltaMin) {
+  const [hi, mi] = hora_inicio.split(":").map(Number);
+  const [hf, mf] = hora_fim.split(":").map(Number);
+  let iniMin = (hi * 60 + mi + deltaMin + 1440) % 1440;
+  let fimMin = (hf * 60 + mf + deltaMin + 1440) % 1440;
+  const fmt = (min) => `${String(Math.floor(min/60)).padStart(2,"0")}:${String(min%60).padStart(2,"0")}`;
+  return { inicio: fmt(iniMin), fim: fmt(fimMin) };
 }
 
 /* ---------- GESTÃO DE EQUIPA ---------- */
@@ -787,16 +860,30 @@ function checkDescansoMinimo(turno, todos) {
 }
 
 /* ---------- MODAL NOVO TURNO ---------- */
-function openTurnoModal() {
+function openTurnoModal(turno) {
   const sel = document.getElementById("tFuncionario");
   sel.innerHTML = state.utilizadoresLoja.map(u => `<option value="${u.id}">${u.nome}</option>`).join("");
-  document.getElementById("tData").value = fmtDate(new Date());
-  document.getElementById("tInicio").value = "";
-  document.getElementById("tFim").value = "";
-  document.getElementById("tTipo").value = "turno";
-  document.getElementById("tAlmoco").value = "1";
-  document.getElementById("tAlmocoWrap").style.display = "block";
   document.getElementById("turnoLegalNote").innerHTML = "";
+  if (turno) {
+    state.editingTurnoId = turno.id;
+    sel.value = turno.utilizador_id;
+    document.getElementById("tData").value = turno.data;
+    document.getElementById("tInicio").value = turno.hora_inicio ? turno.hora_inicio.slice(0,5) : "";
+    document.getElementById("tFim").value = turno.hora_fim ? turno.hora_fim.slice(0,5) : "";
+    document.getElementById("tTipo").value = turno.tipo;
+    document.getElementById("tAlmoco").value = String(turno.almoco_horas ?? 1);
+    document.getElementById("tAlmocoWrap").style.display = turno.tipo === "turno" ? "block" : "none";
+    document.getElementById("btnEliminarTurno").style.display = "block";
+  } else {
+    state.editingTurnoId = null;
+    document.getElementById("tData").value = fmtDate(new Date());
+    document.getElementById("tInicio").value = "";
+    document.getElementById("tFim").value = "";
+    document.getElementById("tTipo").value = "turno";
+    document.getElementById("tAlmoco").value = "1";
+    document.getElementById("tAlmocoWrap").style.display = "block";
+    document.getElementById("btnEliminarTurno").style.display = "none";
+  }
   document.getElementById("modalTurno").classList.add("active");
 }
 document.getElementById("tTipo").addEventListener("change", (e) => {
@@ -826,20 +913,30 @@ async function guardarTurno() {
 
   const noturno = tipo === "turno" && isNoturno(hora_inicio, hora_fim);
 
-  // valida descanso mínimo contra turnos já carregados desta semana
   const fake = { data, hora_inicio, utilizador_id };
-  const aviso = tipo === "turno" ? checkDescansoMinimo(fake, state.turnos) : null;
+  const outrosTurnos = state.editingTurnoId ? state.turnos.filter(t => t.id !== state.editingTurnoId) : state.turnos;
+  const aviso = tipo === "turno" ? checkDescansoMinimo(fake, outrosTurnos) : null;
   if (aviso) {
     document.getElementById("turnoLegalNote").innerHTML = `<div class="legal-note err">⚠️ ${aviso}. Ainda assim, queres guardar?</div>`;
   }
 
-  await sb("cj_horarios_turnos", {
-    method: "POST",
-    body: JSON.stringify([{
-      loja_id: state.loja.id, utilizador_id, data, hora_inicio, hora_fim,
-      tipo, noturno, almoco_horas, criado_por: state.user.id
-    }])
-  });
+  const payload = { loja_id: state.loja.id, utilizador_id, data, hora_inicio, hora_fim, tipo, noturno, almoco_horas };
+
+  if (state.editingTurnoId) {
+    await sb(`cj_horarios_turnos?id=eq.${state.editingTurnoId}`, { method: "PATCH", body: JSON.stringify(payload) });
+  } else {
+    await sb("cj_horarios_turnos", { method: "POST", body: JSON.stringify([{ ...payload, criado_por: state.user.id }]) });
+  }
+  state.editingTurnoId = null;
+  closeModal("modalTurno");
+  carregarMensal();
+  carregarDiario();
+}
+
+async function eliminarTurno() {
+  if (!state.editingTurnoId) return;
+  await sb(`cj_horarios_turnos?id=eq.${state.editingTurnoId}`, { method: "DELETE" });
+  state.editingTurnoId = null;
   closeModal("modalTurno");
   carregarMensal();
   carregarDiario();
