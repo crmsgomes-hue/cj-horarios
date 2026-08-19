@@ -649,6 +649,9 @@ async function carregarDiario() {
   const turnos = await sb(`cj_horarios_turnos?loja_id=eq.${state.loja.id}&data=eq.${iso}&select=*`);
   state.turnosDiario = turnos;
 
+  const idsComFolga = new Set(turnos.filter(t => t.tipo === "folga_complementar" || t.tipo === "folga_obrigatoria").map(t => t.utilizador_id));
+  const utilizadoresVisiveis = state.utilizadoresLoja.filter(u => !idsComFolga.has(u.id));
+
   const totalMin = (DIARIO_FIM_H - DIARIO_INICIO_H) * 60;
   let hoursHtml = "";
   for (let h = DIARIO_INICIO_H; h <= DIARIO_FIM_H; h++) {
@@ -656,7 +659,7 @@ async function carregarDiario() {
   }
 
   let rowsHtml = "";
-  state.utilizadoresLoja.forEach(u => {
+  utilizadoresVisiveis.forEach(u => {
     const turnosUser = turnos.filter(t => t.utilizador_id === u.id && t.tipo === "turno" && t.hora_inicio && t.hora_fim);
     let barsHtml = "";
     turnosUser.forEach(t => {
@@ -872,9 +875,30 @@ function openTurnoModal(turno, prefill) {
   }
   document.getElementById("modalTurno").classList.add("active");
 }
-document.getElementById("tTipo").addEventListener("change", (e) => {
+document.getElementById("tTipo").addEventListener("change", async (e) => {
   document.getElementById("tAlmocoWrap").style.display = e.target.value === "turno" ? "block" : "none";
+  if (!state.editingTurnoId && (e.target.value === "folga_complementar" || e.target.value === "folga_obrigatoria")) {
+    const utilizador_id = document.getElementById("tFuncionario").value;
+    const data = document.getElementById("tData").value;
+    if (utilizador_id && data) {
+      const tipoCorreto = await determinarTipoFolga(utilizador_id, data);
+      document.getElementById("tTipo").value = tipoCorreto;
+      document.getElementById("turnoLegalNote").innerHTML = tipoCorreto === "folga_obrigatoria"
+        ? `<div class="legal-note">Definida como <b>Folga Obrigatória (FO)</b> — ainda não há folga esta semana.</div>`
+        : `<div class="legal-note">Definida como <b>Folga Complementar (FC)</b> — já existe uma Folga Obrigatória esta semana.</div>`;
+    }
+  } else {
+    document.getElementById("turnoLegalNote").innerHTML = "";
+  }
 });
+async function determinarTipoFolga(utilizador_id, dataStr, excluirId) {
+  const dataRef = new Date(dataStr);
+  const inicio = startOfWeek(dataRef);
+  const fim = new Date(inicio); fim.setDate(fim.getDate() + 6);
+  const turnos = await sb(`cj_horarios_turnos?utilizador_id=eq.${utilizador_id}&data=gte.${fmtDate(inicio)}&data=lte.${fmtDate(fim)}&select=id,tipo`);
+  const folgasExistentes = turnos.filter(t => (t.tipo === "folga_complementar" || t.tipo === "folga_obrigatoria") && t.id !== excluirId);
+  return folgasExistentes.length === 0 ? "folga_obrigatoria" : "folga_complementar";
+}
 function closeModal(id) { document.getElementById(id).classList.remove("active"); }
 
 function isNoturno(inicio, fim) {
@@ -889,12 +913,17 @@ async function guardarTurno() {
   const data = document.getElementById("tData").value;
   const hora_inicio = document.getElementById("tInicio").value || null;
   const hora_fim = document.getElementById("tFim").value || null;
-  const tipo = document.getElementById("tTipo").value;
+  let tipo = document.getElementById("tTipo").value;
   const almoco_horas = tipo === "turno" ? parseFloat(document.getElementById("tAlmoco").value) : 0;
 
   if (!data || (tipo === "turno" && (!hora_inicio || !hora_fim))) {
     document.getElementById("turnoLegalNote").innerHTML = `<div class="legal-note err">Preenche a data e as horas do turno.</div>`;
     return;
+  }
+
+  // garante FC/FO corretos mesmo que a data/funcionário tenham mudado depois de escolher o tipo
+  if (!state.editingTurnoId && (tipo === "folga_complementar" || tipo === "folga_obrigatoria")) {
+    tipo = await determinarTipoFolga(utilizador_id, data);
   }
 
   const noturno = tipo === "turno" && isNoturno(hora_inicio, hora_fim);
