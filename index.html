@@ -152,7 +152,7 @@
   }
   table.mensal-grid th{background:var(--bg-elev);color:var(--text-dim);font-weight:600;min-width:34px;}
   table.mensal-grid th.weekend{color:var(--accent);}
-  table.mensal-grid td{min-width:34px;color:var(--text-dim);}
+  table.mensal-grid td{min-width:34px;color:var(--text-dim);cursor:pointer;}
   table.mensal-grid td.turno{background:var(--card);color:var(--text);font-weight:600;cursor:pointer;}
   table.mensal-grid td.folga{background:none;color:var(--text-dim);font-style:italic;cursor:pointer;}
   table.mensal-grid td.noturno{color:var(--accent);}
@@ -277,49 +277,29 @@
     <button class="tab-btn active" data-tab="semana" onclick="switchTab('semana')">
       <span class="ic">📅</span>Horário
     </button>
-    <button class="tab-btn" data-tab="ferias" onclick="switchTab('ferias')">
-      <span class="ic">🌴</span>Férias
-    </button>
     <button class="tab-btn" data-tab="equipa" onclick="switchTab('equipa')">
       <span class="ic">👥</span>Equipa
     </button>
   </div>
 </div>
 
-<!-- EQUIPA -->
+<!-- EQUIPA (colaboradores + pedidos de férias) -->
 <div id="equipa-tab" class="screen">
   <header class="top">
     <div><h1>Equipa</h1><div class="sub" id="equipa-loja"></div></div>
     <button class="btn-icon" onclick="showScreen('hub')">✕</button>
   </header>
+  <div style="padding:16px 20px 0;font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">Colaboradores</div>
   <div id="equipa-list"></div>
+  <div style="padding:8px 20px 0;font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">Pedidos de férias</div>
+  <div id="equipa-ferias-list"></div>
   <button class="fab" onclick="openColabModal()">+</button>
   <div class="tabbar">
     <button class="tab-btn" data-tab="semana" onclick="goHorariosTab('semana')">
       <span class="ic">📅</span>Horário
     </button>
-    <button class="tab-btn" data-tab="ferias" onclick="goHorariosTab('ferias')">
-      <span class="ic">🌴</span>Férias
-    </button>
     <button class="tab-btn active" data-tab="equipa" onclick="goHorariosTab('equipa')">
       <span class="ic">👥</span>Equipa
-    </button>
-  </div>
-</div>
-
-<div id="ferias-tab" class="screen">
-  <header class="top">
-    <div><h1>Férias</h1><div class="sub" id="fer-loja"></div></div>
-    <button class="btn-icon" onclick="showScreen('hub')">✕</button>
-  </header>
-  <div id="ferias-list"></div>
-  <button class="fab" onclick="openFeriasModal()">+</button>
-  <div class="tabbar">
-    <button class="tab-btn" data-tab="semana" onclick="goHorariosTab('semana')">
-      <span class="ic">📅</span>Semana
-    </button>
-    <button class="tab-btn active" data-tab="ferias" onclick="goHorariosTab('ferias')">
-      <span class="ic">🌴</span>Férias
     </button>
   </div>
 </div>
@@ -349,13 +329,7 @@
     </div>
     <div class="field" id="tAlmocoWrap">
       <label>Horas de almoço</label>
-      <select id="tAlmoco">
-        <option value="0">Sem almoço</option>
-        <option value="0.5">30 minutos</option>
-        <option value="1" selected>1 hora</option>
-        <option value="1.5">1h30</option>
-        <option value="2">2 horas</option>
-      </select>
+      <input type="number" id="tAlmoco" min="0" step="0.5" value="1" placeholder="ex: 1 ou 1.5">
     </div>
     <div class="field">
       <label>Tipo</label>
@@ -392,27 +366,6 @@
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal('modalColab')">Cancelar</button>
       <button class="btn primary" onclick="guardarColab()">Criar acesso</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL FERIAS -->
-<div class="modal-bg" id="modalFerias">
-  <div class="modal">
-    <h3>Pedir férias</h3>
-    <div class="row2">
-      <div class="field">
-        <label>De</label>
-        <input type="date" id="fInicio">
-      </div>
-      <div class="field">
-        <label>Até</label>
-        <input type="date" id="fFim">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn ghost" onclick="closeModal('modalFerias')">Cancelar</button>
-      <button class="btn primary" onclick="guardarFerias()">Pedir</button>
     </div>
   </div>
 </div>
@@ -498,8 +451,7 @@ function showScreen(id) {
   document.getElementById(id).classList.add("active");
 }
 function switchTab(tab) {
-  if (tab === "ferias") { showScreen("ferias-tab"); carregarFerias(); }
-  else if (tab === "equipa") { showScreen("equipa-tab"); carregarEquipa(); }
+  if (tab === "equipa") { showScreen("equipa-tab"); carregarEquipa(); }
   else { showScreen("horarios"); }
 }
 function goHorariosTab(tab) { switchTab(tab); }
@@ -638,7 +590,7 @@ async function carregarMensal() {
     for (let d = 1; d <= numDias; d++) {
       const iso = fmtDate(new Date(y, m, d));
       const t = turnos.find(x => x.utilizador_id === u.id && x.data === iso);
-      if (!t) rows += `<td></td>`;
+      if (!t) rows += `<td data-empty-data="${iso}" data-empty-utilizador="${u.id}"></td>`;
       else if (t.tipo === "folga") rows += `<td class="folga" data-turno-id="${t.id}">F</td>`;
       else rows += `<td class="turno ${t.noturno ? 'noturno' : ''}" data-turno-id="${t.id}">${t.hora_inicio?.slice(0,5)}-${t.hora_fim?.slice(0,5)}</td>`;
     }
@@ -652,6 +604,11 @@ document.getElementById("mensalGrid").addEventListener("click", (e) => {
   if (!td) return;
   const turno = (state.turnosMes || []).find(t => String(t.id) === td.dataset.turnoId);
   if (turno) openTurnoModal(turno);
+});
+document.getElementById("mensalGrid").addEventListener("dblclick", (e) => {
+  const td = e.target.closest("td[data-empty-data]");
+  if (!td) return;
+  openTurnoModal(null, { data: td.dataset.emptyData, utilizador_id: td.dataset.emptyUtilizador });
 });
 
 /* ---------- VISTA DIÁRIA: horas em coluna (30 min), colaboradores em linha ---------- */
@@ -800,16 +757,17 @@ async function carregarEquipa() {
   const list = document.getElementById("equipa-list");
   if (!lista.length) {
     list.innerHTML = `<div class="empty-state"><div class="ic">👥</div>Ainda não há colaboradores registados</div>`;
-    return;
-  }
-  list.innerHTML = lista.map(u => `
-    <div class="colab-card">
-      <div class="info">
-        <div class="nome">${u.nome}</div>
-        <div class="user">Login: ${u.username || "—"}</div>
+  } else {
+    list.innerHTML = lista.map(u => `
+      <div class="colab-card">
+        <div class="info">
+          <div class="nome">${u.nome}</div>
+          <div class="user">Login: ${u.username || "—"}</div>
+        </div>
       </div>
-    </div>
-  `).join("");
+    `).join("");
+  }
+  await carregarPedidosFerias();
 }
 function openColabModal() {
   document.getElementById("cNome").value = "";
@@ -867,7 +825,7 @@ function checkDescansoMinimo(turno, todos) {
 }
 
 /* ---------- MODAL NOVO TURNO ---------- */
-function openTurnoModal(turno) {
+function openTurnoModal(turno, prefill) {
   const sel = document.getElementById("tFuncionario");
   sel.innerHTML = state.utilizadoresLoja.map(u => `<option value="${u.id}">${u.nome}</option>`).join("");
   document.getElementById("turnoLegalNote").innerHTML = "";
@@ -883,7 +841,14 @@ function openTurnoModal(turno) {
     document.getElementById("btnEliminarTurno").style.display = "block";
   } else {
     state.editingTurnoId = null;
-    document.getElementById("tData").value = fmtDate(new Date());
+    // data por defeito: a que estava selecionada na vista (diária/célula), senão hoje
+    let dataDefeito = fmtDate(new Date());
+    if (prefill?.data) dataDefeito = prefill.data;
+    else if (document.getElementById("calDiario").style.display === "block") {
+      dataDefeito = document.getElementById("diarioDate").value || dataDefeito;
+    }
+    document.getElementById("tData").value = dataDefeito;
+    if (prefill?.utilizador_id) sel.value = prefill.utilizador_id;
     document.getElementById("tInicio").value = "";
     document.getElementById("tFim").value = "";
     document.getElementById("tTipo").value = "turno";
@@ -949,41 +914,36 @@ async function eliminarTurno() {
   carregarDiario();
 }
 
-/* ---------- FÉRIAS ---------- */
-async function carregarFerias() {
-  document.getElementById("fer-loja").textContent = `${state.loja?.nome || ""} · ${state.user.nome}`;
-  let filtro = `loja_id=eq.${state.loja.id}`;
-  if (state.user.papel !== "gerente") filtro += `&utilizador_id=eq.${state.user.id}`;
-  state.ferias = await sb(`cj_horarios_pedidos_ferias?${filtro}&select=*&order=data_inicio.desc`);
-
-  const list = document.getElementById("ferias-list");
-  if (!state.ferias.length) {
+/* ---------- FÉRIAS (dentro da aba Equipa) ---------- */
+async function carregarPedidosFerias() {
+  const lista = await sb(`cj_horarios_pedidos_ferias?loja_id=eq.${state.loja.id}&select=*&order=data_inicio.desc`);
+  const nomeUtilizador = (id) => (state.utilizadoresLoja.find(u => u.id === id) || {}).nome || "—";
+  const list = document.getElementById("equipa-ferias-list");
+  if (!lista.length) {
     list.innerHTML = `<div class="empty-state"><div class="ic">🌴</div>Ainda não há pedidos de férias</div>`;
     return;
   }
-  list.innerHTML = state.ferias.map(f => `
+  list.innerHTML = lista.map(f => `
     <div class="fer-card">
-      <div class="dates">${new Date(f.data_inicio).toLocaleDateString("pt-PT")} – ${new Date(f.data_fim).toLocaleDateString("pt-PT")}</div>
+      <div class="dates">${nomeUtilizador(f.utilizador_id)}</div>
+      <div style="font-size:13px;color:var(--text-dim);margin-top:2px">${new Date(f.data_inicio).toLocaleDateString("pt-PT")} – ${new Date(f.data_fim).toLocaleDateString("pt-PT")}</div>
       <span class="status ${f.estado}">${f.estado}</span>
+      ${f.estado === "pendente" ? `
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn ghost" style="padding:8px;font-size:12px" onclick="responderFerias('${f.id}','recusado')">Recusar</button>
+          <button class="btn primary" style="padding:8px;font-size:12px" onclick="responderFerias('${f.id}','aprovado')">Aprovar</button>
+        </div>` : ''}
     </div>
   `).join("");
 }
-function openFeriasModal() {
-  document.getElementById("fInicio").value = "";
-  document.getElementById("fFim").value = "";
-  document.getElementById("modalFerias").classList.add("active");
-}
-async function guardarFerias() {
-  const data_inicio = document.getElementById("fInicio").value;
-  const data_fim = document.getElementById("fFim").value;
-  if (!data_inicio || !data_fim) return;
-  await sb("cj_horarios_pedidos_ferias", {
-    method: "POST",
-    body: JSON.stringify([{ loja_id: state.loja.id, utilizador_id: state.user.id, data_inicio, data_fim }])
+async function responderFerias(id, estado) {
+  await sb(`cj_horarios_pedidos_ferias?id=eq.${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ estado, respondido_por: state.user.id })
   });
-  closeModal("modalFerias");
-  carregarFerias();
+  carregarPedidosFerias();
 }
+
 
 /* ---------- SERVICE WORKER (scope isolado) ---------- */
 if ("serviceWorker" in navigator) {
