@@ -1,6 +1,6 @@
 // Service Worker exclusivo da app CJ Horários.
 // Nome de cache único para não colidir com o cache de CJ Visitas ou outras apps CJ.
-const CACHE_NAME = 'cj-horarios-cache-v2';
+const CACHE_NAME = 'cj-horarios-cache-v3';
 const SCOPE = '/cj-horarios/';
 
 const CORE_ASSETS = [
