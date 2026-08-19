@@ -211,16 +211,16 @@
   <div class="login-box">
     <div class="logo">🕒</div>
     <h2>CJ Horários</h2>
-    <p>Introduz o teu PIN</p>
-    <div class="pin-dots" id="pinDots">
-      <span></span><span></span><span></span><span></span>
+    <p>Entra com o teu utilizador</p>
+    <div class="field" style="text-align:left">
+      <label>Utilizador</label>
+      <input type="text" id="loginUsername" autocapitalize="none" autocomplete="username">
     </div>
-    <div class="keypad">
-      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
-      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
-      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-      <button></button><button data-k="0">0</button><button data-k="del">⌫</button>
+    <div class="field" style="text-align:left">
+      <label>Password</label>
+      <input type="password" id="loginPassword" autocomplete="current-password">
     </div>
+    <button class="btn primary" style="width:100%" onclick="tentarLogin()">Entrar</button>
     <div id="login-error"></div>
   </div>
 </div>
@@ -417,24 +417,16 @@ let state = {
 };
 
 /* ---------- LOGIN ---------- */
-const pinDots = document.getElementById("pinDots").children;
-document.querySelectorAll(".keypad button[data-k]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const k = btn.dataset.k;
-    if (k === "del") { state.pin = state.pin.slice(0, -1); }
-    else if (state.pin.length < 4) { state.pin += k; }
-    renderPin();
-    if (state.pin.length === 4) tentarLogin();
-  });
-});
-function renderPin() {
-  for (let i = 0; i < 4; i++) pinDots[i].classList.toggle("filled", i < state.pin.length);
-}
 async function tentarLogin() {
-  document.getElementById("login-error").textContent = "";
+  const errEl = document.getElementById("login-error");
+  errEl.textContent = "";
+  const username = document.getElementById("loginUsername").value.trim().toLowerCase();
+  const password = document.getElementById("loginPassword").value;
+  if (!username || !password) { errEl.textContent = "Preenche o utilizador e a password."; return; }
   try {
-    const users = await sb(`cj_utilizadores?pin=eq.${state.pin}&ativo=eq.true&select=*`);
-    if (!users.length) throw new Error("PIN inválido");
+    const password_hash = await sha256Hex(password);
+    const users = await sb(`cj_utilizadores?username=eq.${encodeURIComponent(username)}&password_hash=eq.${password_hash}&ativo=eq.true&papel=eq.gerente&select=*`);
+    if (!users.length) throw new Error("Credenciais inválidas");
     state.user = users[0];
     const empresas = await sb(`cj_empresas?id=eq.${state.user.empresa_id}&select=*`);
     state.empresa = empresas[0];
@@ -447,13 +439,13 @@ async function tentarLogin() {
     state.loja = lojaRows[0];
     await abrirHorarios();
   } catch (e) {
-    document.getElementById("login-error").textContent = "PIN não reconhecido";
-    state.pin = ""; renderPin();
+    errEl.textContent = "Utilizador ou password incorretos";
   }
 }
 function logout() {
-  state = { pin: "", user: null, empresa: null, loja: null, weekStart: null, turnos: [], utilizadoresLoja: [], ferias: [] };
-  renderPin();
+  state = { user: null, empresa: null, loja: null, weekStart: null, turnos: [], utilizadoresLoja: [], ferias: [] };
+  document.getElementById("loginUsername").value = "";
+  document.getElementById("loginPassword").value = "";
   showScreen("login");
 }
 
