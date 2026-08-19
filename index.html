@@ -522,7 +522,7 @@ async function abrirHorarios() {
   state.utilizadoresLoja = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&ativo=eq.true&select=*&order=nome`);
   state.monthDate = new Date();
   showScreen("horarios");
-  await carregarMensal();
+  mudarVistaCalendario("mensal");
 }
 function changeWeek(delta) {
   state.weekStart.setDate(state.weekStart.getDate() + delta * 7);
