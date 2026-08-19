@@ -361,25 +361,57 @@
 <!-- MODAL COLABORADOR -->
 <div class="modal-bg" id="modalColab">
   <div class="modal">
-    <h3>Novo colaborador</h3>
+    <h3 id="colabModalTitulo">Novo colaborador</h3>
+    <div style="padding:8px 0 0;font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">Dados pessoais</div>
     <div class="field">
       <label>Nome</label>
       <input type="text" id="cNome" placeholder="Nome completo">
     </div>
+    <div class="row2">
+      <div class="field">
+        <label>Telemóvel</label>
+        <input type="tel" id="cTelemovel" placeholder="ex: 912345678">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="cEmail" placeholder="email@exemplo.pt">
+      </div>
+    </div>
+    <div style="padding:8px 0 0;font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">Admissão</div>
+    <div class="row2">
+      <div class="field">
+        <label>Data de admissão</label>
+        <input type="date" id="cDataAdmissao">
+      </div>
+      <div class="field">
+        <label>Tipo de contrato</label>
+        <select id="cTipoContrato">
+          <option value="">Selecionar...</option>
+          <option value="Sem termo">Sem termo (efetivo)</option>
+          <option value="Termo certo">Termo certo</option>
+          <option value="Termo incerto">Termo incerto</option>
+          <option value="Part-time">Part-time</option>
+          <option value="Prestação de serviços">Prestação de serviços</option>
+        </select>
+      </div>
+    </div>
+    <div style="padding:8px 0 0;font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;">Acesso à app</div>
     <div class="field">
       <label>Utilizador (login na app do funcionário)</label>
       <input type="text" id="cUsername" placeholder="ex: joana.silva" autocapitalize="none">
     </div>
-    <div class="field">
+    <div class="field" id="cPasswordWrap">
       <label>Password inicial</label>
       <input type="text" id="cPassword" placeholder="Define uma password">
     </div>
     <div id="colabError" style="color:var(--danger);font-size:12px;margin-bottom:8px;"></div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal('modalColab')">Cancelar</button>
-      <button class="btn primary" onclick="guardarColab()">Criar acesso</button>
+      <button class="btn primary" onclick="guardarColab()">Guardar</button>
     </div>
+    <button class="btn" id="btnEliminarColab" style="display:none;width:100%;margin-top:10px;background:var(--danger-dim);color:var(--danger);" onclick="eliminarColab()">Desativar colaborador</button>
   </div>
+
 </div>
 
 <script>
@@ -760,63 +792,118 @@ function deslocarHorario(hora_inicio, hora_fim, deltaMin) {
 }
 
 /* ---------- GESTÃO DE EQUIPA ---------- */
-async function carregarEquipa() {
-  document.getElementById("equipa-loja").textContent = state.loja?.nome || "";
-  const lista = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&papel=eq.funcionario&ativo=eq.true&select=*&order=nome`);
-  const list = document.getElementById("equipa-list");
-  if (!lista.length) {
-    list.innerHTML = `<div class="empty-state"><div class="ic">👥</div>Ainda não há colaboradores registados</div>`;
-  } else {
-    list.innerHTML = lista.map(u => `
-      <div class="colab-card">
-        <div class="info">
-          <div class="nome">${u.nome}</div>
-          <div class="user">Login: ${u.username || "—"}</div>
-        </div>
-      </div>
-    `).join("");
-  }
-  await carregarPedidosFerias();
-}
-function openColabModal() {
-  document.getElementById("cNome").value = "";
-  document.getElementById("cUsername").value = "";
-  document.getElementById("cPassword").value = "";
-  document.getElementById("colabError").textContent = "";
-  document.getElementById("modalColab").classList.add("active");
-}
 async function sha256Hex(texto) {
   const enc = new TextEncoder().encode(texto);
   const buf = await crypto.subtle.digest("SHA-256", enc);
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
+
+async function carregarEquipa() {
+  document.getElementById("equipa-loja").textContent = state.loja?.nome || "";
+  state.colaboradores = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&papel=eq.funcionario&ativo=eq.true&select=*&order=nome`);
+  const list = document.getElementById("equipa-list");
+  if (!state.colaboradores.length) {
+    list.innerHTML = `<div class="empty-state"><div class="ic">👥</div>Ainda não há colaboradores registados</div>`;
+  } else {
+    list.innerHTML = state.colaboradores.map(u => `
+      <div class="colab-card" style="cursor:pointer" onclick="abrirColab('${u.id}')">
+        <div class="info">
+          <div class="nome">${u.nome}</div>
+          <div class="user">Login: ${u.username || "—"}${u.tipo_contrato ? ` · ${u.tipo_contrato}` : ""}</div>
+        </div>
+        <span style="color:var(--text-dim);font-size:18px;">›</span>
+      </div>
+    `).join("");
+  }
+  await carregarPedidosFerias();
+}
+
+function abrirColab(id) {
+  const colab = (state.colaboradores || []).find(c => c.id === id);
+  if (colab) openColabModal(colab);
+}
+
+function openColabModal(colab) {
+  document.getElementById("colabError").textContent = "";
+  if (colab) {
+    state.editingColabId = colab.id;
+    document.getElementById("colabModalTitulo").textContent = "Editar colaborador";
+    document.getElementById("cNome").value = colab.nome || "";
+    document.getElementById("cTelemovel").value = colab.telemovel || "";
+    document.getElementById("cEmail").value = colab.email || "";
+    document.getElementById("cDataAdmissao").value = colab.data_admissao || "";
+    document.getElementById("cTipoContrato").value = colab.tipo_contrato || "";
+    document.getElementById("cUsername").value = colab.username || "";
+    document.getElementById("cPasswordWrap").style.display = "none"; // password não se edita aqui
+    document.getElementById("btnEliminarColab").style.display = "block";
+  } else {
+    state.editingColabId = null;
+    document.getElementById("colabModalTitulo").textContent = "Novo colaborador";
+    document.getElementById("cNome").value = "";
+    document.getElementById("cTelemovel").value = "";
+    document.getElementById("cEmail").value = "";
+    document.getElementById("cDataAdmissao").value = fmtDate(new Date());
+    document.getElementById("cTipoContrato").value = "";
+    document.getElementById("cUsername").value = "";
+    document.getElementById("cPassword").value = "";
+    document.getElementById("cPasswordWrap").style.display = "block";
+    document.getElementById("btnEliminarColab").style.display = "none";
+  }
+  document.getElementById("modalColab").classList.add("active");
+}
+
 async function guardarColab() {
   const nome = document.getElementById("cNome").value.trim();
+  const telemovel = document.getElementById("cTelemovel").value.trim() || null;
+  const email = document.getElementById("cEmail").value.trim() || null;
+  const data_admissao = document.getElementById("cDataAdmissao").value || null;
+  const tipo_contrato = document.getElementById("cTipoContrato").value || null;
   const username = document.getElementById("cUsername").value.trim().toLowerCase();
   const password = document.getElementById("cPassword").value;
   const errEl = document.getElementById("colabError");
-  if (!nome || !username || !password) { errEl.textContent = "Preenche todos os campos."; return; }
+
+  if (!nome || !username) { errEl.textContent = "Preenche pelo menos o nome e o utilizador."; return; }
+  if (!state.editingColabId && !password) { errEl.textContent = "Define uma password inicial."; return; }
 
   try {
-    const password_hash = await sha256Hex(password);
-    await sb("cj_utilizadores", {
-      method: "POST",
-      body: JSON.stringify([{
-        empresa_id: state.empresa.id, loja_id: state.loja.id, nome, username, password_hash, papel: "funcionario"
-      }])
-    });
+    if (state.editingColabId) {
+      await sb(`cj_utilizadores?id=eq.${state.editingColabId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ nome, telemovel, email, data_admissao, tipo_contrato, username })
+      });
+    } else {
+      const password_hash = await sha256Hex(password);
+      await sb("cj_utilizadores", {
+        method: "POST",
+        body: JSON.stringify([{
+          empresa_id: state.empresa.id, loja_id: state.loja.id, nome, telemovel, email, data_admissao, tipo_contrato,
+          username, password_hash, papel: "funcionario"
+        }])
+      });
+    }
     closeModal("modalColab");
-    carregarEquipa();
-    // atualiza a lista usada nas vistas mensal/diária/turno
+    await carregarEquipa();
     state.utilizadoresLoja = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&ativo=eq.true&select=*&order=nome`);
   } catch (e) {
     if (String(e.message || e).includes("duplicate") || String(e.message || e).includes("23505")) {
       errEl.textContent = "Esse utilizador já existe — escolhe outro nome de login.";
     } else {
-      errEl.textContent = "Não foi possível criar o acesso. Tenta novamente.";
+      errEl.textContent = "Não foi possível guardar. Tenta novamente.";
       console.error(e);
     }
   }
+}
+
+async function eliminarColab() {
+  if (!state.editingColabId) return;
+  await sb(`cj_utilizadores?id=eq.${state.editingColabId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ativo: false })
+  });
+  state.editingColabId = null;
+  closeModal("modalColab");
+  await carregarEquipa();
+  state.utilizadoresLoja = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&ativo=eq.true&select=*&order=nome`);
 }
 
 /* Validação simplificada: descanso mínimo de 11h entre turnos consecutivos */
