@@ -170,6 +170,7 @@
   .diario-bar{position:absolute;top:2px;height:28px;background:var(--accent);border-radius:6px;font-size:10px;color:#1a1200;font-weight:700;display:flex;align-items:center;padding:0 6px;overflow:hidden;white-space:nowrap;}
   .diario-bar.noturno{background:#8a6fd6;color:#fff;}
   .diario-bar.folga{background:var(--border);color:var(--text-dim);}
+  .diario-bar.almoco{background:#3a4a63;color:var(--text-dim);border:1px dashed var(--text-dim);z-index:2;}
 
   /* EQUIPA */
   #equipa-list{padding:16px 20px 90px;}
@@ -343,6 +344,16 @@
         <label>Fim</label>
         <input type="time" id="tFim">
       </div>
+    </div>
+    <div class="field" id="tAlmocoWrap">
+      <label>Horas de almoço</label>
+      <select id="tAlmoco">
+        <option value="0">Sem almoço</option>
+        <option value="0.5">30 minutos</option>
+        <option value="1" selected>1 hora</option>
+        <option value="1.5">1h30</option>
+        <option value="2">2 horas</option>
+      </select>
     </div>
     <div class="field">
       <label>Tipo</label>
@@ -676,6 +687,22 @@ async function carregarDiario() {
       const leftPx = (iniRel / 30) * 20;   // 20px por cada 30min (40px por hora)
       const widthPx = ((fimRel - iniRel) / 30) * 20;
       barsHtml += `<div class="diario-bar ${t.noturno ? 'noturno' : ''}" style="left:${leftPx}px;width:${widthPx}px">${t.hora_inicio.slice(0,5)}-${t.hora_fim.slice(0,5)}</div>`;
+
+      // bloco de almoço, colocado automaticamente a meio do turno
+      const almocoMin = (t.almoco_horas || 0) * 60;
+      if (almocoMin > 0 && (fim - ini) > almocoMin) {
+        const trabalhoMin = fim - ini - almocoMin;
+        let almocoInicioAbs = ini + Math.round(trabalhoMin / 2 / 30) * 30; // centra e arredonda a 30min
+        const almocoFimAbs = almocoInicioAbs + almocoMin;
+        const aIniRel = Math.max(0, almocoInicioAbs - DIARIO_INICIO_H * 60);
+        const aFimRel = Math.min(totalMin, almocoFimAbs - DIARIO_INICIO_H * 60);
+        if (aFimRel > aIniRel) {
+          const aLeftPx = (aIniRel / 30) * 20;
+          const aWidthPx = ((aFimRel - aIniRel) / 30) * 20;
+          const hIni = Math.floor((almocoInicioAbs % 1440) / 60), mIni = almocoInicioAbs % 60;
+          barsHtml += `<div class="diario-bar almoco" style="left:${aLeftPx}px;width:${aWidthPx}px" title="Almoço">🍽 ${String(hIni).padStart(2,"0")}:${String(mIni).padStart(2,"0")}</div>`;
+        }
+      }
     });
     rowsHtml += `<div class="diario-row"><div class="name">${u.nome}</div><div class="track" style="width:${(totalMin/30)*20}px">${barsHtml}</div></div>`;
   });
@@ -767,9 +794,14 @@ function openTurnoModal() {
   document.getElementById("tInicio").value = "";
   document.getElementById("tFim").value = "";
   document.getElementById("tTipo").value = "turno";
+  document.getElementById("tAlmoco").value = "1";
+  document.getElementById("tAlmocoWrap").style.display = "block";
   document.getElementById("turnoLegalNote").innerHTML = "";
   document.getElementById("modalTurno").classList.add("active");
 }
+document.getElementById("tTipo").addEventListener("change", (e) => {
+  document.getElementById("tAlmocoWrap").style.display = e.target.value === "turno" ? "block" : "none";
+});
 function closeModal(id) { document.getElementById(id).classList.remove("active"); }
 
 function isNoturno(inicio, fim) {
@@ -785,6 +817,7 @@ async function guardarTurno() {
   const hora_inicio = document.getElementById("tInicio").value || null;
   const hora_fim = document.getElementById("tFim").value || null;
   const tipo = document.getElementById("tTipo").value;
+  const almoco_horas = tipo === "turno" ? parseFloat(document.getElementById("tAlmoco").value) : 0;
 
   if (!data || (tipo === "turno" && (!hora_inicio || !hora_fim))) {
     document.getElementById("turnoLegalNote").innerHTML = `<div class="legal-note err">Preenche a data e as horas do turno.</div>`;
@@ -804,11 +837,12 @@ async function guardarTurno() {
     method: "POST",
     body: JSON.stringify([{
       loja_id: state.loja.id, utilizador_id, data, hora_inicio, hora_fim,
-      tipo, noturno, criado_por: state.user.id
+      tipo, noturno, almoco_horas, criado_por: state.user.id
     }])
   });
   closeModal("modalTurno");
-  carregarSemana();
+  carregarMensal();
+  carregarDiario();
 }
 
 /* ---------- FÉRIAS ---------- */
