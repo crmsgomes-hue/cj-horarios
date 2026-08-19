@@ -234,13 +234,12 @@
   </header>
 
   <div class="view-switch">
-    <button id="vs-semana" class="active" onclick="mudarVistaCalendario('semana')">Semana</button>
-    <button id="vs-mensal" onclick="mudarVistaCalendario('mensal')">Mensal</button>
+    <button id="vs-mensal" class="active" onclick="mudarVistaCalendario('mensal')">Mensal</button>
     <button id="vs-diario" onclick="mudarVistaCalendario('diario')">Diária</button>
   </div>
 
-  <!-- VISTA SEMANA -->
-  <div id="calSemana">
+  <!-- VISTA SEMANA (mantida no código para a app de equipa reaproveitar a lógica, mas não é mostrada ao gerente) -->
+  <div id="calSemana" style="display:none">
     <div class="week-nav">
       <button onclick="changeWeek(-1)">‹ Anterior</button>
       <div class="label" id="weekLabel"></div>
@@ -423,7 +422,7 @@ async function sb(path, opts = {}) {
       ...(opts.headers || {})
     }
   });
-  if (!res.ok) { console.error(await res.text()); throw new Error("Erro Supabase"); }
+  if (!res.ok) { const errText = await res.text(); console.error(errText); throw new Error(errText); }
   return res.status === 204 ? null : res.json();
 }
 
@@ -493,7 +492,7 @@ function goHorariosTab(tab) { switchTab(tab); }
 
 /* ---------- TROCA DE VISTA DO CALENDÁRIO ---------- */
 function mudarVistaCalendario(v) {
-  ["semana","mensal","diario"].forEach(x => {
+  ["mensal","diario"].forEach(x => {
     document.getElementById(`vs-${x}`).classList.toggle("active", x === v);
     document.getElementById(`cal${x[0].toUpperCase()}${x.slice(1)}`).style.display = x === v ? "block" : "none";
   });
@@ -543,8 +542,9 @@ async function abrirHorarios() {
   document.getElementById("hor-loja").textContent = `${state.loja?.nome || ""} · ${state.user.nome}`;
   document.getElementById("fabAdd").style.display = state.user.papel === "gerente" ? "flex" : "none";
   state.utilizadoresLoja = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&ativo=eq.true&select=*&order=nome`);
+  state.monthDate = new Date();
   showScreen("horarios");
-  await carregarSemana();
+  await carregarMensal();
 }
 function changeWeek(delta) {
   state.weekStart.setDate(state.weekStart.getDate() + delta * 7);
@@ -736,7 +736,12 @@ async function guardarColab() {
     // atualiza a lista usada nas vistas mensal/diária/turno
     state.utilizadoresLoja = await sb(`cj_utilizadores?loja_id=eq.${state.loja.id}&ativo=eq.true&select=*&order=nome`);
   } catch (e) {
-    errEl.textContent = "Esse utilizador já existe — escolhe outro nome de login.";
+    if (String(e.message || e).includes("duplicate") || String(e.message || e).includes("23505")) {
+      errEl.textContent = "Esse utilizador já existe — escolhe outro nome de login.";
+    } else {
+      errEl.textContent = "Não foi possível criar o acesso. Tenta novamente.";
+      console.error(e);
+    }
   }
 }
 
