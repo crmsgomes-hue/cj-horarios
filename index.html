@@ -153,8 +153,8 @@
   table.mensal-grid th{background:var(--bg-elev);color:var(--text-dim);font-weight:600;min-width:34px;}
   table.mensal-grid th.weekend{color:var(--accent);}
   table.mensal-grid td{min-width:34px;color:var(--text-dim);}
-  table.mensal-grid td.turno{background:var(--card);color:var(--text);font-weight:600;}
-  table.mensal-grid td.folga{background:none;color:var(--text-dim);font-style:italic;}
+  table.mensal-grid td.turno{background:var(--card);color:var(--text);font-weight:600;cursor:pointer;}
+  table.mensal-grid td.folga{background:none;color:var(--text-dim);font-style:italic;cursor:pointer;}
   table.mensal-grid td.noturno{color:var(--accent);}
 
   /* VISTA DIÁRIA */
@@ -621,6 +621,7 @@ async function carregarMensal() {
   document.getElementById("monthLabel").textContent = start.toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
 
   const turnos = await sb(`cj_horarios_turnos?loja_id=eq.${state.loja.id}&data=gte.${fmtDate(start)}&data=lte.${fmtDate(end)}&select=*`);
+  state.turnosMes = turnos;
 
   const diasSemana = ["D","S","T","Q","Q","S","S"];
   let thead = `<tr><th class="func-col">Colaborador</th>`;
@@ -638,14 +639,20 @@ async function carregarMensal() {
       const iso = fmtDate(new Date(y, m, d));
       const t = turnos.find(x => x.utilizador_id === u.id && x.data === iso);
       if (!t) rows += `<td></td>`;
-      else if (t.tipo === "folga") rows += `<td class="folga">F</td>`;
-      else rows += `<td class="turno ${t.noturno ? 'noturno' : ''}">${t.hora_inicio?.slice(0,5)}-${t.hora_fim?.slice(0,5)}</td>`;
+      else if (t.tipo === "folga") rows += `<td class="folga" data-turno-id="${t.id}">F</td>`;
+      else rows += `<td class="turno ${t.noturno ? 'noturno' : ''}" data-turno-id="${t.id}">${t.hora_inicio?.slice(0,5)}-${t.hora_fim?.slice(0,5)}</td>`;
     }
     rows += `</tr>`;
   });
 
   document.getElementById("mensalGrid").innerHTML = thead + rows;
 }
+document.getElementById("mensalGrid").addEventListener("click", (e) => {
+  const td = e.target.closest("td[data-turno-id]");
+  if (!td) return;
+  const turno = (state.turnosMes || []).find(t => String(t.id) === td.dataset.turnoId);
+  if (turno) openTurnoModal(turno);
+});
 
 /* ---------- VISTA DIÁRIA: horas em coluna (30 min), colaboradores em linha ---------- */
 const DIARIO_INICIO_H = 6;   // 06:00
